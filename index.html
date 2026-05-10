@@ -8,7 +8,7 @@
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#FFF9EC">
 <meta name="color-scheme" content="light">
-<meta name="description" content="Track ride time for each kid on battery and pedal cars at home.">
+<meta name="description" content="Track ride time and GPS for each kid on battery and pedal cars at home.">
 <link rel="icon" href="favicon.png" type="image/png">
 
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -137,9 +137,7 @@
   body.picker-edit .rider-tile-delete { display: inline-flex; }
   body.picker-edit .rider-tile-add { display: none; }
 
-  .picker-footer {
-    display: flex; justify-content: center; margin-top: 4px;
-  }
+  .picker-footer { display: flex; justify-content: center; margin-top: 4px; }
   .edit-toggle {
     background: transparent; border: none; cursor: pointer;
     color: var(--ink-2); font-family: inherit; font-weight: 600;
@@ -174,6 +172,19 @@
   }
   .color-swatch:hover { transform: scale(1.1); }
   .color-swatch.selected { border-color: var(--ink); }
+  .emoji-picker {
+    display: grid; grid-template-columns: repeat(8, 1fr);
+    gap: 8px; margin-top: 4px;
+  }
+  .emoji-pick {
+    aspect-ratio: 1 / 1; border: 2px solid var(--border); cursor: pointer;
+    background: var(--bg); border-radius: 12px;
+    font-size: 24px; padding: 0;
+    transition: transform 0.1s, border-color 0.18s, background 0.18s;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .emoji-pick:hover { transform: scale(1.06); }
+  .emoji-pick.selected { border-color: var(--blue); background: white; }
   .panel-actions {
     display: grid; grid-template-columns: 1fr 1.4fr;
     gap: 10px; margin-top: 16px;
@@ -198,6 +209,10 @@
     background: var(--bg); color: var(--ink); border: 1.5px solid var(--border);
   }
   .btn-ghost:hover { border-color: var(--ink-2); }
+  .btn-danger {
+    background: var(--red); color: white;
+    box-shadow: 0 4px 0 0 var(--red-d), var(--shadow);
+  }
 
   .icon-btn {
     width: 44px; height: 44px;
@@ -246,6 +261,78 @@
     font-size: 13px; font-weight: 600; color: var(--ink-2);
     text-transform: uppercase; letter-spacing: 0.08em;
     margin-bottom: 14px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .card-title .edit-link {
+    background: transparent; border: none; cursor: pointer;
+    color: var(--blue); font-family: inherit; font-weight: 600;
+    font-size: 12px; text-transform: none; letter-spacing: 0;
+    padding: 0;
+  }
+  .card-title .edit-link:hover { color: var(--blue-d); }
+
+  /* CHIPS */
+  .setup-row { margin-bottom: 14px; }
+  .setup-row:last-child { margin-bottom: 0; }
+  .setup-label {
+    font-size: 12px; font-weight: 600; color: var(--ink-2);
+    text-transform: uppercase; letter-spacing: 0.08em;
+    margin-bottom: 8px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .setup-label .edit-link {
+    background: transparent; border: none; cursor: pointer;
+    color: var(--blue); font-family: inherit; font-weight: 600;
+    font-size: 12px; text-transform: none; letter-spacing: 0;
+    padding: 2px 6px;
+  }
+  .chip-row {
+    display: flex; gap: 8px;
+    overflow-x: auto;
+    padding: 6px 4px;
+    margin: -6px -4px;
+    scrollbar-width: none;
+  }
+  .chip-row::-webkit-scrollbar { display: none; }
+  .chip {
+    --accent: var(--ink);
+    flex-shrink: 0;
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--bg);
+    border: 2px solid var(--border);
+    color: var(--ink);
+    padding: 8px 14px;
+    border-radius: 100px;
+    font-family: inherit; font-weight: 600; font-size: 14px;
+    cursor: pointer;
+    position: relative;
+    white-space: nowrap;
+    transition: transform 0.08s, background 0.18s, border-color 0.18s, color 0.18s;
+  }
+  .chip:active { transform: translateY(1px); }
+  .chip.selected {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+  }
+  .chip-emoji { font-size: 18px; line-height: 1; }
+  .chip-add {
+    border-style: dashed; color: var(--ink-2);
+  }
+  .chip-delete {
+    position: absolute; top: -7px; right: -7px;
+    width: 22px; height: 22px;
+    background: var(--red); color: white;
+    border: 2px solid var(--card); border-radius: 50%;
+    font-size: 11px; font-weight: 700; line-height: 1;
+    display: none; cursor: pointer;
+    align-items: center; justify-content: center;
+    font-family: inherit;
+  }
+  .chip-row.editing .chip-delete { display: inline-flex; }
+  .chip-row.editing .chip-add { display: none; }
+  .empty-chip {
+    color: var(--ink-3); font-size: 13px; font-weight: 500; padding: 8px 4px;
   }
 
   /* TODAY card */
@@ -283,7 +370,7 @@
   .today-remaining.over { color: var(--red); font-weight: 600; }
 
   /* TIMER card */
-  .timer-card { text-align: center; padding: 24px 18px 22px; }
+  .timer-card { text-align: center; padding: 24px 18px 20px; }
   .big-btn {
     width: 100%; max-width: 320px; margin: 0 auto;
     padding: 22px 18px;
@@ -319,10 +406,27 @@
   .timer-time.over { color: var(--red); animation: pulse 0.9s ease-in-out infinite; }
   @keyframes pulse { 50% { opacity: 0.55; } }
 
-  /* LIMIT card */
-  .limit-row {
-    display: flex; align-items: center; gap: 12px;
+  .gps-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    margin-top: 12px; padding: 6px 12px;
+    border-radius: 100px;
+    background: var(--bg); border: 1px solid var(--border);
+    font-size: 12px; font-weight: 600; color: var(--ink-2);
   }
+  .gps-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--ink-3);
+  }
+  .gps-pill.ok { color: var(--green-d); border-color: rgba(34,197,94,0.3); background: rgba(34,197,94,0.08); }
+  .gps-pill.ok .gps-dot { background: var(--green); animation: blink 1.4s infinite; }
+  .gps-pill.warn { color: var(--orange); border-color: rgba(249,115,22,0.3); background: rgba(249,115,22,0.08); }
+  .gps-pill.warn .gps-dot { background: var(--orange); }
+  .gps-pill.err { color: var(--red); border-color: rgba(239,68,68,0.3); background: rgba(239,68,68,0.08); }
+  .gps-pill.err .gps-dot { background: var(--red); }
+  @keyframes blink { 50% { opacity: 0.4; } }
+
+  /* LIMIT card */
+  .limit-row { display: flex; align-items: center; gap: 12px; }
   .limit-input {
     width: 120px; text-align: center;
     font-size: 28px; font-weight: 700; color: var(--ink);
@@ -334,9 +438,7 @@
   .limit-input:focus { outline: none; border-color: var(--blue); background: white; }
   .limit-input::-webkit-inner-spin-button,
   .limit-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-  .limit-units {
-    font-size: 16px; color: var(--ink-2); font-weight: 500;
-  }
+  .limit-units { font-size: 16px; color: var(--ink-2); font-weight: 500; }
 
   /* RIDERS list */
   .riders-tabs {
@@ -388,6 +490,49 @@
     font-variant-numeric: tabular-nums;
   }
 
+  /* RIDE HISTORY */
+  .ride-section-label {
+    font-size: 12px; font-weight: 600; color: var(--ink-3);
+    text-transform: uppercase; letter-spacing: 0.08em;
+    margin: 14px 0 6px;
+  }
+  .ride-section-label:first-child { margin-top: 0; }
+  .ride-row {
+    display: grid; grid-template-columns: auto 1fr auto;
+    gap: 12px; align-items: center;
+    padding: 12px 14px; margin: 6px -4px;
+    background: var(--bg); border-radius: 14px;
+    cursor: pointer; transition: background 0.15s, transform 0.08s;
+    border: 1.5px solid transparent;
+    text-align: left; font-family: inherit; width: calc(100% + 8px);
+  }
+  .ride-row:hover { border-color: var(--border); }
+  .ride-row:active { transform: translateY(1px); }
+  .ride-row.has-gps { cursor: pointer; }
+  .ride-row.no-gps { cursor: default; }
+  .ride-row.no-gps:hover { border-color: transparent; }
+  .ride-emoji {
+    width: 38px; height: 38px;
+    background: var(--card); border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+    border: 1px solid var(--border);
+  }
+  .ride-info { min-width: 0; }
+  .ride-line-1 {
+    font-size: 15px; font-weight: 700; color: var(--ink);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .ride-line-2 {
+    font-size: 12px; color: var(--ink-2); font-weight: 500;
+    margin-top: 2px;
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  }
+  .ride-arrow {
+    color: var(--ink-3); font-size: 18px;
+  }
+  .ride-row.no-gps .ride-arrow { display: none; }
+
   .empty {
     text-align: center; padding: 22px 14px;
     color: var(--ink-2); font-size: 14px; font-weight: 500;
@@ -395,9 +540,7 @@
   }
 
   /* SYNC */
-  .sync-row {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
-  }
+  .sync-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .data-hint {
     margin-top: 12px; font-size: 12px; color: var(--ink-3);
     line-height: 1.6; font-weight: 500;
@@ -414,9 +557,11 @@
   }
   @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
   .modal-card {
-    background: white; border-radius: 22px; padding: 28px 24px;
-    max-width: 380px; width: 100%; text-align: center;
+    background: white; border-radius: 22px; padding: 24px 22px;
+    max-width: 420px; width: 100%; text-align: center;
     box-shadow: var(--shadow-md);
+    max-height: calc(100vh - var(--safe-top) - var(--safe-bottom) - 40px);
+    overflow-y: auto;
   }
   .modal-card h2 {
     font-size: 22px; font-weight: 700; color: var(--ink);
@@ -426,6 +571,9 @@
     font-size: 15px; color: var(--ink-2); margin-bottom: 18px;
     line-height: 1.5; font-weight: 500;
   }
+  .modal-card .panel-label { text-align: left; }
+  .modal-card .input { text-align: left; }
+
   .ios-steps {
     text-align: left; padding: 14px 16px; background: var(--bg);
     border-radius: 14px; margin-bottom: 18px; list-style: none;
@@ -445,6 +593,49 @@
     display: flex; align-items: center; justify-content: center;
   }
   .ios-steps li strong { color: var(--blue); font-weight: 700; }
+
+  /* MAP MODAL */
+  #map-overlay { padding: 0; }
+  .map-card {
+    background: white;
+    width: 100%; height: 100%;
+    max-width: 600px;
+    display: flex; flex-direction: column;
+    border-radius: 0;
+  }
+  .map-header {
+    padding: calc(var(--safe-top) + 12px) 14px 12px;
+    display: flex; align-items: center; gap: 12px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .map-header-info { flex: 1; min-width: 0; text-align: left; }
+  .map-title {
+    font-size: 16px; font-weight: 700; color: var(--ink);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .map-sub {
+    font-size: 12px; color: var(--ink-2); font-weight: 500;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  #map-container { flex: 1; min-height: 250px; background: var(--bg); }
+  .map-stats {
+    padding: 14px 18px calc(var(--safe-bottom) + 14px);
+    border-top: 1px solid var(--border);
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+  .map-stat .num {
+    font-size: 22px; font-weight: 700; color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+  .map-stat .lbl {
+    font-size: 10px; color: var(--ink-2); font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    margin-top: 6px;
+  }
 
   /* TOAST */
   #toast {
@@ -475,7 +666,7 @@
     </div>
     <div class="rider-grid" id="rider-grid"></div>
     <div class="picker-footer">
-      <button id="edit-toggle" class="edit-toggle" onclick="toggleEditMode()">Edit riders</button>
+      <button id="edit-toggle" class="edit-toggle" onclick="toggleRiderEditMode()">Edit riders</button>
     </div>
 
     <div id="new-rider-panel" class="new-rider-panel hidden">
@@ -506,6 +697,24 @@
       </div>
     </div>
 
+    <!-- TODAY'S RIDE: car + location -->
+    <section class="card">
+      <div class="setup-row">
+        <div class="setup-label">
+          <span>Car</span>
+          <button class="edit-link" onclick="toggleChipEdit('car')">Edit</button>
+        </div>
+        <div class="chip-row cars" id="car-chips"></div>
+      </div>
+      <div class="setup-row">
+        <div class="setup-label">
+          <span>Location</span>
+          <button class="edit-link" onclick="toggleChipEdit('location')">Edit</button>
+        </div>
+        <div class="chip-row locations" id="location-chips"></div>
+      </div>
+    </section>
+
     <section class="card today-card">
       <div class="today-numbers">
         <span class="today-now" id="today-now">0</span>
@@ -524,14 +733,12 @@
         Current Ride
         <span id="timer" class="timer-time">00:00</span>
       </div>
+      <div id="gps-pill" class="gps-pill"><span class="gps-dot"></span><span id="gps-text">GPS off</span></div>
     </section>
 
     <section class="card">
-      <div class="card-title">Daily Limit</div>
-      <div class="limit-row">
-        <input type="number" id="limit-input" class="limit-input" min="1" max="600" step="1" inputmode="numeric" onchange="saveLimit()">
-        <span class="limit-units">minutes per day</span>
-      </div>
+      <div class="card-title">Ride History</div>
+      <div id="ride-history"></div>
     </section>
 
     <section class="card">
@@ -544,6 +751,14 @@
     </section>
 
     <section class="card">
+      <div class="card-title">Daily Limit</div>
+      <div class="limit-row">
+        <input type="number" id="limit-input" class="limit-input" min="1" max="600" step="1" inputmode="numeric" onchange="saveLimit()">
+        <span class="limit-units">minutes per day</span>
+      </div>
+    </section>
+
+    <section class="card">
       <div class="card-title">Sync Across Devices</div>
       <div class="sync-row">
         <button class="btn btn-ghost" onclick="exportData()">📤 Export</button>
@@ -552,7 +767,7 @@
       <input type="file" id="import-file" accept="application/json,.json" onchange="handleImport(event)">
       <p class="data-hint">
         Each rider's data lives on their device. Use Export/Import to sync between phones (AirDrop, email, etc.).
-        Merging keeps the higher total time per rider.
+        Merging keeps both sides' rides.
       </p>
     </section>
   </main>
@@ -571,14 +786,50 @@
     </div>
   </div>
 
-  <!-- delete-rider confirm -->
+  <!-- delete confirm -->
   <div id="confirm-delete" class="overlay hidden" onclick="closeConfirm(event)">
     <div class="modal-card" onclick="event.stopPropagation()">
-      <h2>Remove rider?</h2>
-      <p id="confirm-delete-msg">This will erase their ride time. This can't be undone.</p>
+      <h2 id="confirm-delete-title">Remove?</h2>
+      <p id="confirm-delete-msg">This can't be undone.</p>
       <div class="sync-row">
         <button class="btn btn-ghost" onclick="closeConfirm()">Cancel</button>
-        <button class="btn btn-primary" style="background:var(--red);box-shadow:0 4px 0 0 var(--red-d), var(--shadow);" onclick="confirmDelete()">Remove</button>
+        <button class="btn btn-danger" onclick="confirmDelete()">Remove</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- add car/location modal -->
+  <div id="add-item-overlay" class="overlay hidden" onclick="closeAddItem(event)">
+    <div class="modal-card" onclick="event.stopPropagation()">
+      <h2 id="add-item-title">Add Car</h2>
+      <span class="panel-label" id="add-item-name-label">Car Name</span>
+      <input class="input" type="text" id="add-item-name" maxlength="24" autocapitalize="words">
+      <span class="panel-label" style="margin-top:14px;">Pick a Color</span>
+      <div class="color-swatches" id="add-item-colors"></div>
+      <span class="panel-label" style="margin-top:14px;">Pick an Emoji</span>
+      <div class="emoji-picker" id="add-item-emojis"></div>
+      <div class="panel-actions">
+        <button class="btn btn-ghost" onclick="closeAddItem()">Cancel</button>
+        <button class="btn btn-primary" onclick="confirmAddItem()">Add</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- map modal -->
+  <div id="map-overlay" class="overlay hidden">
+    <div class="map-card">
+      <div class="map-header">
+        <button class="icon-btn" onclick="closeMap()" aria-label="Close">←</button>
+        <div class="map-header-info">
+          <div class="map-title" id="map-title">Ride</div>
+          <div class="map-sub" id="map-sub">—</div>
+        </div>
+      </div>
+      <div id="map-container"></div>
+      <div class="map-stats">
+        <div class="map-stat"><div class="num" id="map-distance">—</div><div class="lbl">Distance</div></div>
+        <div class="map-stat"><div class="num" id="map-duration">—</div><div class="lbl">Duration</div></div>
+        <div class="map-stat"><div class="num" id="map-topspeed">—</div><div class="lbl">Top Speed</div></div>
       </div>
     </div>
   </div>
@@ -589,16 +840,25 @@
 /* ================= STATE ================= */
 let currentRider = null;
 let currentRangeView = 'today';
-let rideStart = null;        // ms timestamp when ride started
+let rideStart = null;
 let rideTickInterval = null;
 let wakeLock = null;
 let deferredInstallPrompt = null;
 let lastWarnedOver = false;
-let pendingDeleteName = null;
+let pendingDeleteRef = null;     // { type: 'rider'|'car'|'location', key: string }
+let chipEditMode = null;          // 'car' | 'location' | null
+let pendingAddType = null;        // 'car' | 'location'
+
+let geoWatchId = null;
+let currentRideGPS = [];
+let lastGPSPushTs = 0;
+let leafletPromise = null;
+let activeMap = null;
 
 /* ================= STORAGE ================= */
 const STORAGE_KEY = 'ride_tracker_db';
 const LEGACY_KEY  = 'race_db';
+const SCHEMA_VERSION = 4;
 
 function getDB() {
   let raw = localStorage.getItem(STORAGE_KEY);
@@ -606,20 +866,37 @@ function getDB() {
     const legacy = localStorage.getItem(LEGACY_KEY);
     if (legacy) {
       try {
-        const migrated = migrateLegacy(JSON.parse(legacy));
+        const migrated = migrateLegacyV1(JSON.parse(legacy));
         localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
         return migrated;
-      } catch (e) { /* fall through */ }
+      } catch (e) {}
     }
-    return { riders: {} };
+    return freshDB();
   }
-  try { return JSON.parse(raw); } catch (e) { return { riders: {} }; }
+  try {
+    const db = JSON.parse(raw);
+    return ensureDBShape(db);
+  } catch (e) {
+    return freshDB();
+  }
 }
 function saveDB(db) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
 }
-function migrateLegacy(legacy) {
-  const out = { riders: {} };
+function freshDB() {
+  return { schemaVersion: SCHEMA_VERSION, riders: {}, cars: {}, locations: {}, rides: [] };
+}
+function ensureDBShape(db) {
+  if (!db || typeof db !== 'object') return freshDB();
+  if (!db.riders) db.riders = {};
+  if (!db.cars) db.cars = {};
+  if (!db.locations) db.locations = {};
+  if (!Array.isArray(db.rides)) db.rides = [];
+  db.schemaVersion = SCHEMA_VERSION;
+  return db;
+}
+function migrateLegacyV1(legacy) {
+  const out = freshDB();
   if (legacy && legacy.users) {
     Object.entries(legacy.users).forEach(([name, u]) => {
       const totalMins = (u.totalMiles || 0) / 5;
@@ -627,8 +904,10 @@ function migrateLegacy(legacy) {
         color: u.color || null,
         dailyLimitMinutes: 30,
         todayDate: todayStr(),
-        todayMinutes: 0,
-        totalMinutes: totalMins,
+        legacyTodayMinutes: 0,
+        legacyTotalMinutes: totalMins,
+        lastCarId: null,
+        lastLocationId: null,
       };
     });
   }
@@ -636,12 +915,16 @@ function migrateLegacy(legacy) {
 }
 
 /* ================= UTIL ================= */
+function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
 function todayStr() {
   const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return y + '-' + m + '-' + day;
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function dateOf(ts) {
+  const d = new Date(ts);
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
 function formatMMSS(totalSeconds) {
   const s = Math.floor(totalSeconds);
@@ -652,6 +935,26 @@ function formatMMSS(totalSeconds) {
 function formatMins(mins) {
   if (mins < 1) return mins.toFixed(1);
   return String(Math.round(mins));
+}
+function formatDistance(meters) {
+  if (!meters || meters < 1) return '0 m';
+  if (meters < 1000) return Math.round(meters) + ' m';
+  return (meters / 1000).toFixed(2) + ' km';
+}
+function formatSpeed(mps) {
+  if (!mps || mps < 0) return '0';
+  return (mps * 3.6).toFixed(1);
+}
+function formatRelDate(ts) {
+  const d = new Date(ts);
+  const today = todayStr();
+  const yest = new Date(); yest.setDate(yest.getDate() - 1);
+  const yestStr = yest.getFullYear() + '-' + String(yest.getMonth() + 1).padStart(2, '0') + '-' + String(yest.getDate()).padStart(2, '0');
+  const dStr = dateOf(ts);
+  const time = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  if (dStr === today) return 'Today, ' + time;
+  if (dStr === yestStr) return 'Yesterday, ' + time;
+  return d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ', ' + time;
 }
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({
@@ -665,19 +968,54 @@ function toast(msg, kind) {
   clearTimeout(toast._t);
   toast._t = setTimeout(() => { el.className = (kind || ''); }, 2200);
 }
-function ensureTodayReset(rider) {
-  const t = todayStr();
-  if (rider.todayDate !== t) {
-    rider.todayDate = t;
-    rider.todayMinutes = 0;
+
+/* ================= GEO HELPERS ================= */
+function distanceM(p1, p2) {
+  const R = 6371000;
+  const toRad = d => d * Math.PI / 180;
+  const dLat = toRad(p2.lat - p1.lat);
+  const dLon = toRad(p2.lon - p1.lon);
+  const lat1 = toRad(p1.lat);
+  const lat2 = toRad(p2.lat);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+function totalDistanceM(points) {
+  if (!points || points.length < 2) return 0;
+  let d = 0;
+  for (let i = 1; i < points.length; i++) d += distanceM(points[i - 1], points[i]);
+  return d;
+}
+function topSpeedMPS(points) {
+  let max = 0;
+  for (const p of (points || [])) {
+    if (typeof p.speed === 'number' && p.speed > max) max = p.speed;
   }
+  if (max === 0 && points && points.length >= 2) {
+    // derive from points
+    for (let i = 1; i < points.length; i++) {
+      const dt = (points[i].ts - points[i - 1].ts) / 1000;
+      if (dt > 0) {
+        const v = distanceM(points[i - 1], points[i]) / dt;
+        if (v > max && v < 50) max = v; // sanity cap 180km/h
+      }
+    }
+  }
+  return max;
 }
 
-/* ================= COLORS / SEED ================= */
+/* ================= COLORS / EMOJI / SEED ================= */
 const RIDER_COLORS = [
   '#EF4444', '#F97316', '#FACC15', '#22C55E',
   '#06B6D4', '#3B82F6', '#A855F7', '#EC4899'
 ];
+const ITEM_COLORS = [
+  '#367C2B', '#EF4444', '#F97316', '#FACC15',
+  '#06B6D4', '#3B82F6', '#A855F7', '#EC4899'
+];
+const CAR_EMOJIS = ['🚗', '🚙', '🚜', '🏎️', '🛺', '🛴', '🚲', '🛹'];
+const LOCATION_EMOJIS = ['🏠', '🌳', '🏞️', '🅿️', '🛣️', '⛳', '🏟️', '📍'];
+
 function colorForName(name) {
   let h = 0;
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
@@ -688,16 +1026,50 @@ function makeRider(color) {
     color,
     dailyLimitMinutes: 30,
     todayDate: todayStr(),
-    todayMinutes: 0,
-    totalMinutes: 0,
+    legacyTodayMinutes: 0,
+    legacyTotalMinutes: 0,
+    lastCarId: null,
+    lastLocationId: null,
   };
 }
 function ensureSeed() {
   const db = getDB();
+  let changed = false;
   if (Object.keys(db.riders).length === 0) {
     db.riders['Hunter'] = makeRider(RIDER_COLORS[0]);
-    saveDB(db);
+    changed = true;
   }
+  if (Object.keys(db.cars).length === 0) {
+    const id = uid();
+    db.cars[id] = { id, name: 'John Deer H', emoji: '🚜', color: '#367C2B' };
+    changed = true;
+  }
+  if (changed) saveDB(db);
+}
+
+/* ================= RIDE AGGREGATION ================= */
+function getRiderTodayMinutes(name) {
+  const db = getDB();
+  const r = db.riders[name];
+  if (!r) return 0;
+  let mins = 0;
+  if (r.todayDate === todayStr() && r.legacyTodayMinutes) mins += r.legacyTodayMinutes;
+  const today = todayStr();
+  for (const ride of db.rides) {
+    if (ride.riderName !== name) continue;
+    if (dateOf(ride.startTs) === today) mins += (ride.durationSec || 0) / 60;
+  }
+  return mins;
+}
+function getRiderAllMinutes(name) {
+  const db = getDB();
+  const r = db.riders[name];
+  if (!r) return 0;
+  let mins = r.legacyTotalMinutes || 0;
+  for (const ride of db.rides) {
+    if (ride.riderName === name) mins += (ride.durationSec || 0) / 60;
+  }
+  return mins;
 }
 
 /* ================= PICKER ================= */
@@ -720,7 +1092,7 @@ function renderPicker() {
     tile.addEventListener('click', (e) => {
       if (e.target.classList.contains('rider-tile-delete')) {
         e.stopPropagation();
-        askDelete(name);
+        askDelete('rider', name);
       } else if (!document.body.classList.contains('picker-edit')) {
         selectRider(name);
       }
@@ -739,7 +1111,7 @@ function renderPicker() {
   grid.appendChild(addTile);
 }
 
-function toggleEditMode() {
+function toggleRiderEditMode() {
   document.body.classList.toggle('picker-edit');
   const isEdit = document.body.classList.contains('picker-edit');
   document.getElementById('edit-toggle').textContent = isEdit ? 'Done' : 'Edit riders';
@@ -753,7 +1125,7 @@ function selectRider(name) {
 function openAddRider() {
   const panel = document.getElementById('new-rider-panel');
   panel.classList.remove('hidden');
-  renderColorSwatches();
+  renderColorSwatches('color-swatches', RIDER_COLORS);
   setTimeout(() => document.getElementById('new-rider-input').focus(), 50);
   panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
@@ -761,16 +1133,13 @@ function cancelAddRider() {
   document.getElementById('new-rider-panel').classList.add('hidden');
   document.getElementById('new-rider-input').value = '';
 }
-function renderColorSwatches() {
-  const wrap = document.getElementById('color-swatches');
+function renderColorSwatches(containerId, palette, preselect) {
+  const wrap = document.getElementById(containerId);
   wrap.innerHTML = '';
-  const db = getDB();
-  const used = new Set(Object.values(db.riders).map(r => r.color).filter(Boolean));
-  const firstFree = RIDER_COLORS.find(c => !used.has(c)) || RIDER_COLORS[0];
-  RIDER_COLORS.forEach(c => {
+  palette.forEach((c, idx) => {
     const sw = document.createElement('button');
     sw.type = 'button';
-    sw.className = 'color-swatch' + (c === firstFree ? ' selected' : '');
+    sw.className = 'color-swatch' + ((preselect ? c === preselect : idx === 0) ? ' selected' : '');
     sw.style.background = c;
     sw.dataset.color = c;
     sw.addEventListener('click', () => {
@@ -785,7 +1154,7 @@ function confirmAddRider() {
   if (!name) { toast('Enter a name', 'warn'); return; }
   const db = getDB();
   if (db.riders[name]) { toast('Rider already exists', 'warn'); return; }
-  const selected = document.querySelector('.color-swatch.selected');
+  const selected = document.querySelector('#color-swatches .color-swatch.selected');
   const color = selected ? selected.dataset.color : RIDER_COLORS[0];
   db.riders[name] = makeRider(color);
   saveDB(db);
@@ -794,28 +1163,47 @@ function confirmAddRider() {
   toast(name + ' added', 'ok');
 }
 
-/* ================= DELETE RIDER ================= */
-function askDelete(name) {
-  pendingDeleteName = name;
-  document.getElementById('confirm-delete-msg').textContent =
-    'Remove ' + name + '? This will erase their ride time. This can\'t be undone.';
+/* ================= DELETE CONFIRM ================= */
+function askDelete(type, key) {
+  pendingDeleteRef = { type, key };
+  const db = getDB();
+  let label = '';
+  if (type === 'rider') label = key + '? This will erase their rides.';
+  else if (type === 'car') label = (db.cars[key] && db.cars[key].name) + '?';
+  else if (type === 'location') label = (db.locations[key] && db.locations[key].name) + '?';
+  document.getElementById('confirm-delete-title').textContent = 'Remove ' + type + '?';
+  document.getElementById('confirm-delete-msg').textContent = 'Remove ' + label + " This can't be undone.";
   document.getElementById('confirm-delete').classList.remove('hidden');
 }
 function closeConfirm(e) {
   if (e && e.target.closest('.modal-card')) return;
   document.getElementById('confirm-delete').classList.add('hidden');
-  pendingDeleteName = null;
+  pendingDeleteRef = null;
 }
 function confirmDelete() {
-  if (!pendingDeleteName) return;
+  if (!pendingDeleteRef) return;
+  const { type, key } = pendingDeleteRef;
   const db = getDB();
-  delete db.riders[pendingDeleteName];
+  if (type === 'rider') {
+    delete db.riders[key];
+    db.rides = db.rides.filter(r => r.riderName !== key);
+  } else if (type === 'car') {
+    delete db.cars[key];
+    Object.values(db.riders).forEach(r => { if (r.lastCarId === key) r.lastCarId = null; });
+  } else if (type === 'location') {
+    delete db.locations[key];
+    Object.values(db.riders).forEach(r => { if (r.lastLocationId === key) r.lastLocationId = null; });
+  }
   saveDB(db);
-  const name = pendingDeleteName;
-  pendingDeleteName = null;
   document.getElementById('confirm-delete').classList.add('hidden');
-  renderPicker();
-  toast(name + ' removed', 'ok');
+  toast('Removed', 'ok');
+  pendingDeleteRef = null;
+  if (type === 'rider') renderPicker();
+  else if (currentRider) {
+    renderCarChips();
+    renderLocationChips();
+    renderRideHistory();
+  }
 }
 
 /* ================= DASHBOARD ================= */
@@ -830,28 +1218,35 @@ function loadDashboard() {
   const db = getDB();
   const r = db.riders[currentRider];
   if (!r) { logout(); return; }
-  ensureTodayReset(r);
-  saveDB(db);
+
+  // reset legacy day counter if rolled over
+  if (r.todayDate !== todayStr()) {
+    r.todayDate = todayStr();
+    r.legacyTodayMinutes = 0;
+    saveDB(db);
+  }
 
   document.getElementById('avatar').textContent = currentRider.charAt(0).toUpperCase();
   document.getElementById('avatar').style.setProperty('--accent', r.color);
   document.getElementById('rider-name-display').textContent = currentRider;
   document.getElementById('limit-input').value = r.dailyLimitMinutes;
 
+  renderCarChips();
+  renderLocationChips();
   refreshToday();
+  renderRideHistory();
   renderLeaderboard();
   resetTimerUI();
+  resetGPSPill();
   updateInstallButton();
 }
 function refreshToday() {
   const db = getDB();
   const r = db.riders[currentRider];
   if (!r) return;
-  ensureTodayReset(r);
-
   const limit = r.dailyLimitMinutes || 1;
   const liveExtra = rideStart ? (Date.now() - rideStart) / 60000 : 0;
-  const todayMins = r.todayMinutes + liveExtra;
+  const todayMins = getRiderTodayMinutes(currentRider) + liveExtra;
 
   document.getElementById('today-now').textContent = formatMins(todayMins);
   document.getElementById('today-limit-display').textContent = limit;
@@ -860,8 +1255,8 @@ function refreshToday() {
   const fill = document.getElementById('progress-fill');
   fill.style.width = pct + '%';
   fill.classList.remove('warn', 'over', 'full');
-  if (todayMins >= limit) { fill.classList.add('over', 'full'); }
-  else if (pct >= 75) { fill.classList.add('warn'); }
+  if (todayMins >= limit) fill.classList.add('over', 'full');
+  else if (pct >= 75) fill.classList.add('warn');
 
   const remEl = document.getElementById('today-remaining');
   if (todayMins >= limit) {
@@ -880,6 +1275,187 @@ function saveLimit() {
   saveDB(db);
   refreshToday();
   toast('Limit saved', 'ok');
+}
+
+/* ================= CAR + LOCATION CHIPS ================= */
+function renderCarChips() { renderChips('car'); }
+function renderLocationChips() { renderChips('location'); }
+
+function renderChips(type) {
+  const db = getDB();
+  const containerId = type === 'car' ? 'car-chips' : 'location-chips';
+  const container = document.getElementById(containerId);
+  container.innerHTML = '';
+  if (chipEditMode === type) container.classList.add('editing');
+  else container.classList.remove('editing');
+
+  const items = type === 'car' ? db.cars : db.locations;
+  const r = db.riders[currentRider];
+  const selectedKey = type === 'car' ? (r && r.lastCarId) : (r && r.lastLocationId);
+
+  const keys = Object.keys(items);
+  if (!keys.length && chipEditMode !== type) {
+    const emptyMsg = document.createElement('div');
+    emptyMsg.className = 'empty-chip';
+    emptyMsg.textContent = type === 'car' ? 'No cars yet — tap +' : 'No locations yet — tap +';
+    container.appendChild(emptyMsg);
+  }
+
+  keys.forEach(key => {
+    const item = items[key];
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'chip' + (key === selectedKey ? ' selected' : '');
+    chip.style.setProperty('--accent', item.color || '#3B82F6');
+    chip.innerHTML =
+      '<span class="chip-emoji">' + (item.emoji || (type === 'car' ? '🚗' : '📍')) + '</span>' +
+      '<span>' + escapeHtml(item.name) + '</span>' +
+      '<span class="chip-delete" aria-label="Remove">✕</span>';
+    chip.addEventListener('click', (e) => {
+      if (e.target.classList.contains('chip-delete')) {
+        e.stopPropagation();
+        askDelete(type, key);
+      } else if (chipEditMode !== type) {
+        selectChip(type, key);
+      }
+    });
+    container.appendChild(chip);
+  });
+
+  const addChip = document.createElement('button');
+  addChip.type = 'button';
+  addChip.className = 'chip chip-add';
+  addChip.innerHTML = '<span class="chip-emoji">➕</span><span>Add</span>';
+  addChip.addEventListener('click', () => openAddItem(type));
+  container.appendChild(addChip);
+}
+
+function toggleChipEdit(type) {
+  chipEditMode = (chipEditMode === type) ? null : type;
+  renderChips(type);
+  // make sure both rows show edit-link state correctly
+  document.querySelectorAll('.setup-label .edit-link').forEach((btn, i) => {
+    const myType = i === 0 ? 'car' : 'location';
+    btn.textContent = (chipEditMode === myType) ? 'Done' : 'Edit';
+  });
+}
+
+function selectChip(type, key) {
+  const db = getDB();
+  const r = db.riders[currentRider];
+  if (!r) return;
+  if (type === 'car') r.lastCarId = key;
+  else r.lastLocationId = key;
+  saveDB(db);
+  renderChips(type);
+}
+
+/* ================= ADD CAR/LOCATION MODAL ================= */
+function openAddItem(type) {
+  pendingAddType = type;
+  document.getElementById('add-item-title').textContent = type === 'car' ? 'Add Car' : 'Add Location';
+  document.getElementById('add-item-name-label').textContent = type === 'car' ? 'Car Name' : 'Location Name';
+  const nameInput = document.getElementById('add-item-name');
+  nameInput.value = '';
+  nameInput.placeholder = type === 'car' ? 'e.g. Pink Mustang' : 'e.g. Backyard';
+  renderColorSwatches('add-item-colors', ITEM_COLORS);
+  renderEmojiPicker('add-item-emojis', type === 'car' ? CAR_EMOJIS : LOCATION_EMOJIS);
+  document.getElementById('add-item-overlay').classList.remove('hidden');
+  setTimeout(() => nameInput.focus(), 80);
+}
+function closeAddItem(e) {
+  if (e && e.target.closest('.modal-card')) return;
+  document.getElementById('add-item-overlay').classList.add('hidden');
+  pendingAddType = null;
+}
+function renderEmojiPicker(containerId, emojis) {
+  const wrap = document.getElementById(containerId);
+  wrap.innerHTML = '';
+  emojis.forEach((e, idx) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'emoji-pick' + (idx === 0 ? ' selected' : '');
+    btn.textContent = e;
+    btn.dataset.emoji = e;
+    btn.addEventListener('click', () => {
+      wrap.querySelectorAll('.emoji-pick').forEach(s => s.classList.remove('selected'));
+      btn.classList.add('selected');
+    });
+    wrap.appendChild(btn);
+  });
+}
+function confirmAddItem() {
+  const name = document.getElementById('add-item-name').value.trim();
+  if (!name) { toast('Enter a name', 'warn'); return; }
+  const colorSel = document.querySelector('#add-item-colors .color-swatch.selected');
+  const emojiSel = document.querySelector('#add-item-emojis .emoji-pick.selected');
+  const color = colorSel ? colorSel.dataset.color : ITEM_COLORS[0];
+  const emoji = emojiSel ? emojiSel.dataset.emoji : (pendingAddType === 'car' ? '🚗' : '📍');
+  const id = uid();
+  const db = getDB();
+  if (pendingAddType === 'car') db.cars[id] = { id, name, color, emoji };
+  else db.locations[id] = { id, name, color, emoji };
+  // auto-select the new item
+  const r = db.riders[currentRider];
+  if (r) {
+    if (pendingAddType === 'car') r.lastCarId = id;
+    else r.lastLocationId = id;
+  }
+  saveDB(db);
+  closeAddItem();
+  renderCarChips();
+  renderLocationChips();
+  toast(name + ' added', 'ok');
+}
+
+/* ================= GPS ================= */
+function setGPSPill(state, text) {
+  const pill = document.getElementById('gps-pill');
+  pill.classList.remove('ok', 'warn', 'err');
+  if (state) pill.classList.add(state);
+  document.getElementById('gps-text').textContent = text;
+}
+function resetGPSPill() { setGPSPill(null, 'GPS off'); }
+
+function startGPS() {
+  if (!('geolocation' in navigator)) {
+    setGPSPill('err', 'GPS not supported');
+    return;
+  }
+  setGPSPill('warn', 'Waiting for fix…');
+  currentRideGPS = [];
+  lastGPSPushTs = 0;
+  geoWatchId = navigator.geolocation.watchPosition(
+    (pos) => {
+      const acc = Math.round(pos.coords.accuracy);
+      // throttle: keep at most one point per 2s
+      if (pos.timestamp - lastGPSPushTs >= 2000) {
+        const point = {
+          lat: pos.coords.latitude,
+          lon: pos.coords.longitude,
+          ts: pos.timestamp,
+          accuracy: acc,
+        };
+        if (typeof pos.coords.speed === 'number' && pos.coords.speed >= 0) {
+          point.speed = pos.coords.speed;
+        }
+        currentRideGPS.push(point);
+        lastGPSPushTs = pos.timestamp;
+      }
+      setGPSPill('ok', 'GPS · ±' + acc + ' m · ' + currentRideGPS.length + ' pts');
+    },
+    (err) => {
+      if (err.code === err.PERMISSION_DENIED) setGPSPill('err', 'GPS denied');
+      else setGPSPill('warn', 'GPS waiting…');
+    },
+    { enableHighAccuracy: true, maximumAge: 1000, timeout: 15000 }
+  );
+}
+function stopGPS() {
+  if (geoWatchId !== null) {
+    navigator.geolocation.clearWatch(geoWatchId);
+    geoWatchId = null;
+  }
 }
 
 /* ================= RIDE TIMER ================= */
@@ -914,17 +1490,17 @@ function startRide() {
   document.getElementById('timer').classList.add('live');
   rideTickInterval = setInterval(tickTimer, 250);
   requestWakeLock();
+  startGPS();
 }
 function tickTimer() {
   if (!rideStart) return;
   const elapsedSec = (Date.now() - rideStart) / 1000;
   document.getElementById('timer').textContent = formatMMSS(elapsedSec);
   refreshToday();
-
   const db = getDB();
   const r = db.riders[currentRider];
   if (!r) return;
-  const todayMins = r.todayMinutes + elapsedSec / 60;
+  const todayMins = getRiderTodayMinutes(currentRider) + elapsedSec / 60;
   if (todayMins >= r.dailyLimitMinutes && !lastWarnedOver) {
     lastWarnedOver = true;
     toast("Time's up! Daily limit reached.", 'warn');
@@ -933,23 +1509,38 @@ function tickTimer() {
 }
 function stopRide() {
   if (!rideStart) return;
-  const elapsedSec = (Date.now() - rideStart) / 1000;
-  const minutes = elapsedSec / 60;
-  const db = getDB();
-  const r = db.riders[currentRider];
-  if (r) {
-    ensureTodayReset(r);
-    r.todayMinutes += minutes;
-    r.totalMinutes = (r.totalMinutes || 0) + minutes;
-    saveDB(db);
-  }
+  const endTs = Date.now();
+  const startTs = rideStart;
+  const durationSec = (endTs - startTs) / 1000;
   rideStart = null;
   clearInterval(rideTickInterval);
   releaseWakeLock();
+  stopGPS();
+
+  const db = getDB();
+  const r = db.riders[currentRider];
+  const ride = {
+    id: uid(),
+    riderName: currentRider,
+    carId: r ? r.lastCarId : null,
+    locationId: r ? r.lastLocationId : null,
+    startTs, endTs, durationSec,
+    gpsPoints: currentRideGPS.slice(),
+    distanceM: totalDistanceM(currentRideGPS),
+  };
+  if (durationSec >= 1) db.rides.push(ride);
+  saveDB(db);
+  currentRideGPS = [];
+
   resetTimerUI();
+  resetGPSPill();
   refreshToday();
+  renderRideHistory();
   renderLeaderboard();
-  if (minutes >= 0.05) toast('Logged ' + formatMins(minutes) + ' min', 'ok');
+  if (durationSec >= 3) {
+    const mins = durationSec / 60;
+    toast('Logged ' + formatMins(mins) + ' min' + (ride.distanceM > 0 ? ' · ' + formatDistance(ride.distanceM) : ''), 'ok');
+  }
 }
 function resetTimerUI() {
   const btn = document.getElementById('ride-btn');
@@ -959,6 +1550,66 @@ function resetTimerUI() {
   const timer = document.getElementById('timer');
   timer.textContent = '00:00';
   timer.classList.remove('live', 'over');
+}
+
+/* ================= RIDE HISTORY ================= */
+function renderRideHistory() {
+  const db = getDB();
+  const container = document.getElementById('ride-history');
+  const myRides = db.rides
+    .filter(r => r.riderName === currentRider)
+    .sort((a, b) => b.startTs - a.startTs);
+  if (!myRides.length) {
+    container.innerHTML = '<div class="empty">No rides logged yet.<br>Tap <strong>Start Ride</strong> to begin.</div>';
+    return;
+  }
+  const today = todayStr();
+  const todayRides = myRides.filter(r => dateOf(r.startTs) === today);
+  const earlierRides = myRides.filter(r => dateOf(r.startTs) !== today);
+
+  let html = '';
+  if (todayRides.length) {
+    html += '<div class="ride-section-label">Today (' + todayRides.length + ')</div>';
+    html += todayRides.map(rideRowHtml).join('');
+  }
+  if (earlierRides.length) {
+    html += '<div class="ride-section-label">Earlier</div>';
+    html += earlierRides.slice(0, 20).map(rideRowHtml).join('');
+  }
+  container.innerHTML = html;
+  container.querySelectorAll('.ride-row').forEach(el => {
+    el.addEventListener('click', () => {
+      const id = el.dataset.rideId;
+      const ride = (getDB().rides || []).find(r => r.id === id);
+      if (ride && ride.gpsPoints && ride.gpsPoints.length >= 2) openMap(ride);
+    });
+  });
+}
+function rideRowHtml(ride) {
+  const db = getDB();
+  const car = ride.carId && db.cars[ride.carId];
+  const loc = ride.locationId && db.locations[ride.locationId];
+  const carText = car ? (car.emoji + ' ' + escapeHtml(car.name)) : '—';
+  const locText = loc ? (loc.emoji + ' ' + escapeHtml(loc.name)) : '';
+  const mins = (ride.durationSec || 0) / 60;
+  const distText = (ride.distanceM > 0) ? formatDistance(ride.distanceM) : null;
+  const hasGPS = ride.gpsPoints && ride.gpsPoints.length >= 2;
+  const dateText = formatRelDate(ride.startTs);
+  return (
+    '<button class="ride-row ' + (hasGPS ? 'has-gps' : 'no-gps') + '" data-ride-id="' + ride.id + '">' +
+      '<div class="ride-emoji">' + (car ? car.emoji : '🚗') + '</div>' +
+      '<div class="ride-info">' +
+        '<div class="ride-line-1">' + formatMins(mins) + ' min' +
+          (distText ? ' · ' + distText : '') +
+        '</div>' +
+        '<div class="ride-line-2">' +
+          '<span>' + dateText + '</span>' +
+          (loc ? '<span>· ' + locText + '</span>' : '') +
+        '</div>' +
+      '</div>' +
+      '<div class="ride-arrow">›</div>' +
+    '</button>'
+  );
 }
 
 /* ================= LEADERBOARD ================= */
@@ -972,26 +1623,21 @@ function switchRange(range) {
 function renderLeaderboard() {
   const db = getDB();
   const container = document.getElementById('leaderboard');
-  const entries = Object.entries(db.riders).map(([name, r]) => {
-    ensureTodayReset(r);
-    let mins;
-    const liveExtra = (rideStart && name === currentRider) ? (Date.now() - rideStart) / 60000 : 0;
-    if (currentRangeView === 'today') {
-      mins = r.todayMinutes + liveExtra;
-    } else {
-      mins = (r.totalMinutes || 0) + liveExtra;
-    }
+  const liveExtra = rideStart ? (Date.now() - rideStart) / 60000 : 0;
+  const entries = Object.keys(db.riders).map(name => {
+    const r = db.riders[name];
+    const isMe = name === currentRider;
+    const base = (currentRangeView === 'today') ? getRiderTodayMinutes(name) : getRiderAllMinutes(name);
+    const mins = base + (isMe ? liveExtra : 0);
     return { name, mins, color: r.color || colorForName(name) };
   });
   const list = (currentRangeView === 'today')
     ? entries.filter(e => e.mins > 0).sort((a, b) => b.mins - a.mins)
     : entries.sort((a, b) => b.mins - a.mins);
-
   if (!list.length) {
     container.innerHTML = '<div class="empty">No rides yet today.<br>Tap <strong>Start Ride</strong> above!</div>';
     return;
   }
-
   container.innerHTML = '';
   const medals = ['🥇', '🥈', '🥉'];
   list.forEach((item, idx) => {
@@ -1011,6 +1657,84 @@ function renderLeaderboard() {
       '<div class="leader-mins">' + formatMins(item.mins) + ' min</div>';
     container.appendChild(row);
   });
+}
+
+/* ================= MAP MODAL (Leaflet, lazy) ================= */
+function loadLeaflet() {
+  if (window.L) return Promise.resolve(window.L);
+  if (leafletPromise) return leafletPromise;
+  leafletPromise = new Promise((resolve, reject) => {
+    const css = document.createElement('link');
+    css.rel = 'stylesheet';
+    css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+    document.head.appendChild(css);
+    const s = document.createElement('script');
+    s.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+    s.onload = () => resolve(window.L);
+    s.onerror = () => reject(new Error('Leaflet failed to load'));
+    document.head.appendChild(s);
+  });
+  return leafletPromise;
+}
+
+async function openMap(ride) {
+  const db = getDB();
+  const car = ride.carId && db.cars[ride.carId];
+  const loc = ride.locationId && db.locations[ride.locationId];
+  const r = db.riders[ride.riderName];
+  const color = (r && r.color) || '#3B82F6';
+
+  document.getElementById('map-title').textContent =
+    (car ? car.emoji + ' ' : '') + (car ? car.name : 'Ride') +
+    (loc ? ' · ' + loc.name : '');
+  document.getElementById('map-sub').textContent = formatRelDate(ride.startTs);
+  document.getElementById('map-distance').textContent = formatDistance(ride.distanceM || 0);
+  document.getElementById('map-duration').textContent = formatMins(ride.durationSec / 60) + ' min';
+  document.getElementById('map-topspeed').textContent = formatSpeed(topSpeedMPS(ride.gpsPoints)) + ' km/h';
+
+  const overlay = document.getElementById('map-overlay');
+  overlay.classList.remove('hidden');
+
+  let L;
+  try { L = await loadLeaflet(); }
+  catch (e) {
+    document.getElementById('map-container').innerHTML =
+      '<div class="empty" style="padding:40px 20px;">Couldn\'t load the map.<br>Check your internet connection.</div>';
+    return;
+  }
+
+  if (activeMap) { activeMap.remove(); activeMap = null; }
+  const container = document.getElementById('map-container');
+  container.innerHTML = '';
+  const map = L.map(container, { zoomControl: true });
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors',
+    maxZoom: 19
+  }).addTo(map);
+
+  const pts = ride.gpsPoints || [];
+  if (pts.length >= 2) {
+    const latlngs = pts.map(p => [p.lat, p.lon]);
+    const line = L.polyline(latlngs, { color, weight: 5, opacity: 0.9 }).addTo(map);
+    L.circleMarker(latlngs[0], { radius: 7, color: '#fff', weight: 2, fillColor: '#22C55E', fillOpacity: 1 })
+      .addTo(map).bindTooltip('Start');
+    L.circleMarker(latlngs[latlngs.length - 1], { radius: 7, color: '#fff', weight: 2, fillColor: '#EF4444', fillOpacity: 1 })
+      .addTo(map).bindTooltip('Finish');
+    map.fitBounds(line.getBounds(), { padding: [24, 24] });
+  } else if (pts.length === 1) {
+    map.setView([pts[0].lat, pts[0].lon], 17);
+    L.marker([pts[0].lat, pts[0].lon]).addTo(map);
+  } else {
+    map.setView([0, 0], 2);
+  }
+  activeMap = map;
+  // ensure tiles render after the modal animation
+  setTimeout(() => map.invalidateSize(), 250);
+}
+
+function closeMap() {
+  document.getElementById('map-overlay').classList.add('hidden');
+  if (activeMap) { activeMap.remove(); activeMap = null; }
 }
 
 /* ================= PWA / INSTALL / SW ================= */
@@ -1065,11 +1789,11 @@ function exportData() {
   const db = getDB();
   const payload = {
     app: 'ride-tracker',
-    version: 2,
+    version: SCHEMA_VERSION,
     exportedAt: new Date().toISOString(),
     db,
   };
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
   const a = document.createElement('a');
   const stamp = new Date().toISOString().slice(0, 10);
   a.href = URL.createObjectURL(blob);
@@ -1087,31 +1811,40 @@ function handleImport(event) {
     try {
       const incoming = JSON.parse(e.target.result);
       let incomingDB = incoming.db || incoming;
-      if (incomingDB.users && !incomingDB.riders) {
-        incomingDB = migrateLegacy(incomingDB);
-      }
-      if (!incomingDB || !incomingDB.riders) throw new Error('not a ride-tracker export');
+      // accept v1 (race_db) and v2/3 (riders only) too
+      if (incomingDB.users && !incomingDB.riders) incomingDB = migrateLegacyV1(incomingDB);
+      incomingDB = ensureDBShape(incomingDB);
       const local = getDB();
-      const merged = { riders: { ...local.riders } };
-      let added = 0, updated = 0;
+      const merged = ensureDBShape({
+        riders: { ...local.riders },
+        cars:   { ...local.cars,      ...incomingDB.cars },
+        locations: { ...local.locations, ...incomingDB.locations },
+        rides:  local.rides.slice(),
+      });
+      let added = 0;
       Object.entries(incomingDB.riders).forEach(([name, data]) => {
-        if (merged.riders[name]) {
-          merged.riders[name].totalMinutes = Math.max(
-            merged.riders[name].totalMinutes || 0, data.totalMinutes || 0
-          );
-          if (data.todayDate === merged.riders[name].todayDate) {
-            merged.riders[name].todayMinutes = Math.max(
-              merged.riders[name].todayMinutes || 0, data.todayMinutes || 0
-            );
-          }
-          updated++;
-        } else {
+        if (!merged.riders[name]) {
           merged.riders[name] = { ...data };
           added++;
+        } else {
+          // keep higher legacy totals
+          merged.riders[name].legacyTotalMinutes = Math.max(
+            merged.riders[name].legacyTotalMinutes || 0,
+            data.legacyTotalMinutes || 0
+          );
+        }
+      });
+      // merge rides by id
+      const existingIds = new Set(merged.rides.map(r => r.id));
+      let newRides = 0;
+      (incomingDB.rides || []).forEach(ride => {
+        if (!existingIds.has(ride.id)) {
+          merged.rides.push(ride);
+          newRides++;
         }
       });
       saveDB(merged);
-      toast('Synced · +' + added + ' new, ' + updated + ' updated', 'ok');
+      toast('Synced · +' + added + ' riders, +' + newRides + ' rides', 'ok');
       if (currentRider) loadDashboard();
       else renderPicker();
     } catch (err) {
@@ -1127,6 +1860,7 @@ function handleImport(event) {
 function logout() {
   if (rideStart) stopRide();
   currentRider = null;
+  chipEditMode = null;
   document.getElementById('dashboard').classList.add('hidden');
   document.getElementById('picker-screen').classList.remove('hidden');
   cancelAddRider();
@@ -1140,6 +1874,10 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('new-rider-input').addEventListener('keydown', e => {
     if (e.key === 'Enter') confirmAddRider();
     if (e.key === 'Escape') cancelAddRider();
+  });
+  document.getElementById('add-item-name').addEventListener('keydown', e => {
+    if (e.key === 'Enter') confirmAddItem();
+    if (e.key === 'Escape') closeAddItem();
   });
 });
 </script>
