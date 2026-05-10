@@ -659,6 +659,36 @@
     line-height: 1.6;
   }
 
+  /* ADMIN */
+  .admin-stats {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 14px; text-align: center;
+  }
+  .admin-stat .num {
+    font-size: 26px; font-weight: 700; color: var(--ink);
+    font-variant-numeric: tabular-nums; line-height: 1;
+  }
+  .admin-stat .lbl {
+    font-size: 10px; color: var(--ink-2); font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    margin-top: 8px;
+  }
+  .ride-row .ride-rider {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-weight: 700; color: var(--ink);
+  }
+  .ride-row .ride-rider-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+  }
+
+  .picker-footer-links {
+    display: flex; justify-content: center; align-items: center;
+    gap: 6px; margin-top: 4px; flex-wrap: wrap;
+  }
+  .picker-footer-links .sep {
+    color: var(--ink-3); font-size: 14px;
+  }
+
   /* SYNC */
   .sync-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .data-hint {
@@ -806,8 +836,10 @@
       <p>Tap your tile to start riding</p>
     </div>
     <div class="rider-grid" id="rider-grid"></div>
-    <div class="picker-footer">
+    <div class="picker-footer picker-footer-links">
       <button id="edit-toggle" class="edit-toggle" onclick="toggleRiderEditMode()">Edit riders</button>
+      <span class="sep">·</span>
+      <button class="edit-toggle" onclick="openAdmin()">📋 Admin Panel</button>
     </div>
 
     <div id="new-rider-panel" class="new-rider-panel hidden">
@@ -916,6 +948,42 @@
         Each rider's data lives on their device. Use Export/Import to sync between phones (AirDrop, email, etc.).
         Merging keeps both sides' rides.
       </p>
+    </section>
+  </main>
+
+  <!-- ====== ADMIN PANEL ====== -->
+  <main id="admin-screen" class="screen hidden">
+    <div class="top-bar">
+      <button class="icon-btn" onclick="closeAdmin()" aria-label="Back to picker">←</button>
+      <div class="rider-id">
+        <div class="avatar" style="background: var(--blue); --accent: var(--blue);">📋</div>
+        <div class="rider-id-info">
+          <div class="rider-id-name">Admin Panel</div>
+          <div class="rider-id-tag">Every ride logged</div>
+        </div>
+      </div>
+      <div class="top-actions">
+        <button id="theme-toggle-admin" class="icon-btn" onclick="toggleTheme()" aria-label="Toggle dark mode">🌙</button>
+      </div>
+    </div>
+
+    <section class="card">
+      <div class="card-title">Totals</div>
+      <div class="admin-stats">
+        <div class="admin-stat"><div class="num" id="admin-total-rides">0</div><div class="lbl">Rides</div></div>
+        <div class="admin-stat"><div class="num" id="admin-total-time">0</div><div class="lbl">Total Min</div></div>
+        <div class="admin-stat"><div class="num" id="admin-total-dist">0</div><div class="lbl">Total km</div></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-title">Filter by Rider</div>
+      <div class="chip-row" id="admin-filter-chips"></div>
+    </section>
+
+    <section class="card">
+      <div class="card-title">All Rides (<span id="admin-count">0</span>)</div>
+      <div id="admin-ride-list"></div>
     </section>
   </main>
 
@@ -1893,6 +1961,118 @@ function renderLeaderboard() {
   });
 }
 
+/* ================= ADMIN PANEL ================= */
+let adminFilter = 'all';   // 'all' | <riderName>
+
+function openAdmin() {
+  document.getElementById('picker-screen').classList.add('hidden');
+  document.getElementById('admin-screen').classList.remove('hidden');
+  adminFilter = 'all';
+  renderAdmin();
+}
+function closeAdmin() {
+  document.getElementById('admin-screen').classList.add('hidden');
+  document.getElementById('picker-screen').classList.remove('hidden');
+  renderPicker();
+}
+
+function renderAdmin() {
+  renderAdminFilterChips();
+  renderAdminStatsAndList();
+}
+
+function renderAdminFilterChips() {
+  const db = getDB();
+  const wrap = document.getElementById('admin-filter-chips');
+  wrap.innerHTML = '';
+
+  const all = document.createElement('button');
+  all.type = 'button';
+  all.className = 'chip' + (adminFilter === 'all' ? ' selected' : '');
+  all.style.setProperty('--accent', '#3B82F6');
+  all.innerHTML = '<span>All Riders</span>';
+  all.addEventListener('click', () => { adminFilter = 'all'; renderAdmin(); });
+  wrap.appendChild(all);
+
+  Object.keys(db.riders).forEach(name => {
+    const r = db.riders[name];
+    const color = r.color || colorForName(name);
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'chip' + (adminFilter === name ? ' selected' : '');
+    chip.style.setProperty('--accent', color);
+    chip.innerHTML =
+      '<span class="chip-emoji" style="width:10px;height:10px;border-radius:50%;background:' + color + ';display:inline-block;"></span>' +
+      '<span>' + escapeHtml(name) + '</span>';
+    chip.addEventListener('click', () => { adminFilter = name; renderAdmin(); });
+    wrap.appendChild(chip);
+  });
+}
+
+function renderAdminStatsAndList() {
+  const db = getDB();
+  const filtered = (adminFilter === 'all')
+    ? db.rides.slice()
+    : db.rides.filter(r => r.riderName === adminFilter);
+
+  filtered.sort((a, b) => b.startTs - a.startTs);
+
+  // stats
+  const totalRides = filtered.length;
+  const totalSec = filtered.reduce((s, r) => s + (r.durationSec || 0), 0);
+  const totalDistM = filtered.reduce((s, r) => s + (r.distanceM || 0), 0);
+  document.getElementById('admin-total-rides').textContent = totalRides;
+  document.getElementById('admin-total-time').textContent = formatMins(totalSec / 60);
+  document.getElementById('admin-total-dist').textContent = (totalDistM / 1000).toFixed(2);
+  document.getElementById('admin-count').textContent = totalRides;
+
+  const container = document.getElementById('admin-ride-list');
+  if (!filtered.length) {
+    container.innerHTML = '<div class="empty">No rides logged' + (adminFilter !== 'all' ? ' for ' + escapeHtml(adminFilter) : '') + ' yet.</div>';
+    return;
+  }
+  container.innerHTML = filtered.map(adminRideRowHtml).join('');
+  container.querySelectorAll('.ride-row').forEach(el => {
+    el.addEventListener('click', () => {
+      const id = el.dataset.rideId;
+      const ride = (getDB().rides || []).find(r => r.id === id);
+      if (ride && ride.gpsPoints && ride.gpsPoints.length >= 2) openMap(ride);
+    });
+  });
+}
+
+function adminRideRowHtml(ride) {
+  const db = getDB();
+  const r = db.riders[ride.riderName];
+  const color = (r && r.color) || colorForName(ride.riderName);
+  const car = ride.carId && db.cars[ride.carId];
+  const loc = ride.locationId && db.locations[ride.locationId];
+  const mins = (ride.durationSec || 0) / 60;
+  const distText = (ride.distanceM > 0) ? formatDistance(ride.distanceM) : null;
+  const hasGPS = ride.gpsPoints && ride.gpsPoints.length >= 2;
+  const dateText = formatRelDate(ride.startTs);
+  const carText = car ? (car.emoji + ' ' + escapeHtml(car.name)) : '';
+  const locText = loc ? (loc.emoji + ' ' + escapeHtml(loc.name)) : '';
+  return (
+    '<button class="ride-row ' + (hasGPS ? 'has-gps' : 'no-gps') + '" data-ride-id="' + ride.id + '">' +
+      '<div class="ride-emoji">' + (car ? car.emoji : '🚗') + '</div>' +
+      '<div class="ride-info">' +
+        '<div class="ride-line-1">' +
+          '<span class="ride-rider"><span class="ride-rider-dot" style="background:' + color + '"></span>' + escapeHtml(ride.riderName) + '</span>' +
+          '<span style="color:var(--ink-2);font-weight:500;"> · ' + formatMins(mins) + ' min' +
+          (distText ? ' · ' + distText : '') + '</span>' +
+        '</div>' +
+        '<div class="ride-line-2">' +
+          '<span>' + dateText + '</span>' +
+          (carText ? '<span>· ' + carText + '</span>' : '') +
+          (locText ? '<span>· ' + locText + '</span>' : '') +
+        '</div>' +
+      '</div>' +
+      '<div class="ride-arrow">›</div>' +
+    '</button>'
+  );
+}
+
 /* ================= MAP MODAL (Leaflet, lazy) ================= */
 function loadLeaflet() {
   if (window.L) return Promise.resolve(window.L);
@@ -2125,7 +2305,7 @@ function applyTheme(stored) {
   const eff = effectiveTheme(stored);
   document.documentElement.setAttribute('data-theme', eff);
   const icon = eff === 'dark' ? '☀️' : '🌙';
-  ['theme-toggle-picker', 'theme-toggle-dash'].forEach(id => {
+  ['theme-toggle-picker', 'theme-toggle-dash', 'theme-toggle-admin'].forEach(id => {
     const b = document.getElementById(id);
     if (b) b.textContent = icon;
   });
