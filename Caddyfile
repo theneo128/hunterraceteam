@@ -1,0 +1,18 @@
+{
+	auto_https off
+	admin off
+}
+
+:{$PORT:80} {
+	root * /srv
+	encode gzip
+	file_server
+
+	# Don't cache the shell or service worker so updates land immediately.
+	@noCache path /sw.js /index.html /manifest.json /
+	header @noCache Cache-Control "no-cache"
+
+	# Cache icons aggressively.
+	@icons path *.png
+	header @icons Cache-Control "public, max-age=31536000, immutable"
+}
