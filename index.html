@@ -1651,33 +1651,64 @@ function startGPS() {
   setGPSPill('warn', 'Waiting for fix…');
   currentRideGPS = [];
   lastGPSPushTs = 0;
+  let prevStored = null;
+  let droppedCount = 0;
+
   geoWatchId = navigator.geolocation.watchPosition(
     (pos) => {
       const acc = Math.round(pos.coords.accuracy);
       const lat = pos.coords.latitude;
       const lon = pos.coords.longitude;
 
-      // live marker follows every position update (smooth)
+      // 1. Drop garbage fixes (>100m accuracy is unusable)
+      if (acc > 100) {
+        droppedCount++;
+        setGPSPill('warn', 'No signal · ±' + acc + ' m · need open sky');
+        return;
+      }
+
+      // 2. Drop impossible teleports vs last stored point
+      //    (>30 m/s = 108 km/h AND moved more than 50m)
+      if (prevStored) {
+        const dt = (pos.timestamp - prevStored.ts) / 1000;
+        const d = distanceM({ lat, lon }, prevStored);
+        if (dt > 0 && d > 50 && (d / dt) > 30) {
+          droppedCount++;
+          return;
+        }
+      }
+
+      // 3. Live marker follows every accepted position (smooth feedback)
       updateLivePosition(lat, lon, acc);
 
-      // throttled storage: keep at most one stored point per 2s
-      if (pos.timestamp - lastGPSPushTs >= 2000) {
+      // 4. Throttle storage to ~1.5s for smoother trails
+      if (pos.timestamp - lastGPSPushTs >= 1500) {
         const point = { lat, lon, ts: pos.timestamp, accuracy: acc };
         if (typeof pos.coords.speed === 'number' && pos.coords.speed >= 0) {
           point.speed = pos.coords.speed;
         }
         currentRideGPS.push(point);
         lastGPSPushTs = pos.timestamp;
+        prevStored = point;
         appendLiveTrail(lat, lon);
       }
 
-      setGPSPill('ok', 'GPS · ±' + acc + ' m · ' + currentRideGPS.length + ' pts');
+      // 5. Show signal quality clearly
+      let pillState = 'ok';
+      let quality = 'Good';
+      if (acc <= 10)      quality = 'Strong';
+      else if (acc <= 30) quality = 'Good';
+      else if (acc <= 60) { quality = 'Fair'; pillState = 'ok'; }
+      else                { quality = 'Weak'; pillState = 'warn'; }
+      setGPSPill(pillState,
+        quality + ' · ±' + acc + ' m · ' + currentRideGPS.length + ' pts'
+      );
     },
     (err) => {
       if (err.code === err.PERMISSION_DENIED) setGPSPill('err', 'GPS denied');
       else setGPSPill('warn', 'GPS waiting…');
     },
-    { enableHighAccuracy: true, maximumAge: 1000, timeout: 15000 }
+    { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
   );
 }
 function stopGPS() {
