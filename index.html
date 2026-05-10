@@ -430,6 +430,24 @@
   }
   .chip svg { width: 14px; height: 14px; }
   .chip-emoji { font-size: 18px; line-height: 1; }
+  .chip-runtime {
+    display: inline-flex; align-items: center;
+    margin-left: 4px; padding: 2px 8px;
+    border-radius: 100px;
+    background: rgba(45,55,72,0.06);
+    color: var(--ink-2);
+    font-size: 11px; font-weight: 700;
+    letter-spacing: 0.02em;
+    line-height: 1.2;
+  }
+  .chip.selected .chip-runtime {
+    background: rgba(255,255,255,0.22);
+    color: rgba(255,255,255,0.95);
+  }
+  [data-theme="dark"] .chip-runtime {
+    background: rgba(255,255,255,0.08);
+    color: var(--ink-2);
+  }
   .chip-add {
     border-style: dashed; color: var(--ink-2);
   }
@@ -933,6 +951,7 @@
         <input type="number" id="limit-input" class="limit-input" min="1" max="600" step="1" inputmode="numeric" onchange="saveLimit()">
         <span class="limit-units">minutes per day</span>
       </div>
+      <p id="limit-source" style="margin-top:10px; font-size:12px; color:var(--ink-3); font-weight:500; line-height:1.5;"></p>
     </section>
 
     <section class="card">
@@ -1021,13 +1040,20 @@
       <h2 id="add-item-title">Add Car</h2>
       <span class="panel-label" id="add-item-name-label">Car Name</span>
       <input class="input" type="text" id="add-item-name" maxlength="24" autocapitalize="words">
+      <div id="add-item-runtime-row" style="margin-top:14px;">
+        <span class="panel-label" id="add-item-runtime-label">Battery runtime (min per charge)</span>
+        <input class="input" type="number" id="add-item-runtime" min="1" max="600" step="1" inputmode="numeric" placeholder="e.g. 60">
+        <p style="margin-top:6px; font-size:12px; color:var(--ink-3); font-weight:500; line-height:1.5;">
+          We'll use this as the daily ride limit when this car is selected. For pedal cars, just enter how many minutes per day.
+        </p>
+      </div>
       <span class="panel-label" style="margin-top:14px;">Pick a Color</span>
       <div class="color-swatches" id="add-item-colors"></div>
       <span class="panel-label" style="margin-top:14px;">Pick an Emoji</span>
       <div class="emoji-picker" id="add-item-emojis"></div>
       <div class="panel-actions">
         <button class="btn btn-ghost" onclick="closeAddItem()">Cancel</button>
-        <button class="btn btn-primary" onclick="confirmAddItem()">Add</button>
+        <button class="btn btn-primary" id="add-item-confirm-btn" onclick="confirmAddItem()">Add</button>
       </div>
     </div>
   </div>
@@ -1065,6 +1091,7 @@ let lastWarnedOver = false;
 let pendingDeleteRef = null;     // { type: 'rider'|'car'|'location', key: string }
 let chipEditMode = null;          // 'car' | 'location' | null
 let pendingAddType = null;        // 'car' | 'location'
+let pendingEditId = null;         // id of car/location being edited (null = add mode)
 
 let geoWatchId = null;
 let currentRideGPS = [];
@@ -1460,6 +1487,7 @@ function loadDashboard() {
   renderCarChips();
   renderLocationChips();
   refreshToday();
+  refreshLimitSource();
   renderRideHistory();
   renderLeaderboard();
   resetTimerUI();
@@ -1500,7 +1528,23 @@ function saveLimit() {
   db.riders[currentRider].dailyLimitMinutes = v;
   saveDB(db);
   refreshToday();
+  refreshLimitSource();
   toast('Limit saved', 'ok');
+}
+function refreshLimitSource() {
+  const el = document.getElementById('limit-source');
+  if (!el) return;
+  const db = getDB();
+  const r = db.riders[currentRider];
+  if (!r) { el.textContent = ''; return; }
+  const car = r.lastCarId ? db.cars[r.lastCarId] : null;
+  if (car && car.runtimeMinutes && car.runtimeMinutes === r.dailyLimitMinutes) {
+    el.innerHTML = '⚡ Auto-set from <strong>' + escapeHtml(car.name) + '</strong> battery runtime. Pick a different car or type a new number to change it.';
+  } else if (car && car.runtimeMinutes) {
+    el.innerHTML = '<strong>' + escapeHtml(car.name) + '</strong> charge lasts ' + car.runtimeMinutes + ' min — tap it again to use that as the limit.';
+  } else {
+    el.textContent = '';
+  }
 }
 
 /* ================= CAR + LOCATION CHIPS ================= */
@@ -1533,15 +1577,21 @@ function renderChips(type) {
     chip.type = 'button';
     chip.className = 'chip' + (key === selectedKey ? ' selected' : '');
     chip.style.setProperty('--accent', item.color || '#3B82F6');
+    const runtimeBadge = (type === 'car' && item.runtimeMinutes)
+      ? '<span class="chip-runtime">' + item.runtimeMinutes + ' min</span>'
+      : '';
     chip.innerHTML =
       '<span class="chip-emoji">' + (item.emoji || (type === 'car' ? '🚗' : '📍')) + '</span>' +
       '<span>' + escapeHtml(item.name) + '</span>' +
+      runtimeBadge +
       '<span class="chip-delete" aria-label="Remove">✕</span>';
     chip.addEventListener('click', (e) => {
       if (e.target.classList.contains('chip-delete')) {
         e.stopPropagation();
         askDelete(type, key);
-      } else if (chipEditMode !== type) {
+      } else if (chipEditMode === type) {
+        openEditItem(type, key);
+      } else {
         selectChip(type, key);
       }
     });
@@ -1570,37 +1620,73 @@ function selectChip(type, key) {
   const db = getDB();
   const r = db.riders[currentRider];
   if (!r) return;
-  if (type === 'car') r.lastCarId = key;
-  else r.lastLocationId = key;
+  if (type === 'car') {
+    r.lastCarId = key;
+    const car = db.cars[key];
+    if (car && car.runtimeMinutes && car.runtimeMinutes > 0) {
+      r.dailyLimitMinutes = car.runtimeMinutes;
+      document.getElementById('limit-input').value = r.dailyLimitMinutes;
+    }
+  } else {
+    r.lastLocationId = key;
+  }
   saveDB(db);
   renderChips(type);
+  if (type === 'car') {
+    refreshToday();
+    refreshLimitSource();
+  }
 }
 
-/* ================= ADD CAR/LOCATION MODAL ================= */
+/* ================= ADD/EDIT CAR/LOCATION MODAL ================= */
 function openAddItem(type) {
   pendingAddType = type;
+  pendingEditId = null;
   document.getElementById('add-item-title').textContent = type === 'car' ? 'Add Car' : 'Add Location';
   document.getElementById('add-item-name-label').textContent = type === 'car' ? 'Car Name' : 'Location Name';
+  document.getElementById('add-item-confirm-btn').textContent = 'Add';
   const nameInput = document.getElementById('add-item-name');
   nameInput.value = '';
   nameInput.placeholder = type === 'car' ? 'e.g. Pink Mustang' : 'e.g. Backyard';
+  document.getElementById('add-item-runtime-row').style.display = (type === 'car') ? 'block' : 'none';
+  document.getElementById('add-item-runtime').value = '';
   renderColorSwatches('add-item-colors', ITEM_COLORS);
   renderEmojiPicker('add-item-emojis', type === 'car' ? CAR_EMOJIS : LOCATION_EMOJIS);
   document.getElementById('add-item-overlay').classList.remove('hidden');
   setTimeout(() => nameInput.focus(), 80);
 }
+function openEditItem(type, id) {
+  const db = getDB();
+  const item = (type === 'car' ? db.cars : db.locations)[id];
+  if (!item) return;
+  pendingAddType = type;
+  pendingEditId = id;
+  document.getElementById('add-item-title').textContent = type === 'car' ? 'Edit Car' : 'Edit Location';
+  document.getElementById('add-item-name-label').textContent = type === 'car' ? 'Car Name' : 'Location Name';
+  document.getElementById('add-item-confirm-btn').textContent = 'Save';
+  const nameInput = document.getElementById('add-item-name');
+  nameInput.value = item.name || '';
+  document.getElementById('add-item-runtime-row').style.display = (type === 'car') ? 'block' : 'none';
+  document.getElementById('add-item-runtime').value = (type === 'car' && item.runtimeMinutes) ? item.runtimeMinutes : '';
+  renderColorSwatches('add-item-colors', ITEM_COLORS, item.color);
+  renderEmojiPicker('add-item-emojis', type === 'car' ? CAR_EMOJIS : LOCATION_EMOJIS, item.emoji);
+  document.getElementById('add-item-overlay').classList.remove('hidden');
+}
 function closeAddItem(e) {
   if (e && e.target.closest('.modal-card')) return;
   document.getElementById('add-item-overlay').classList.add('hidden');
   pendingAddType = null;
+  pendingEditId = null;
 }
-function renderEmojiPicker(containerId, emojis) {
+function renderEmojiPicker(containerId, emojis, preselect) {
   const wrap = document.getElementById(containerId);
   wrap.innerHTML = '';
-  emojis.forEach((e, idx) => {
+  // ensure preselected emoji is in the list (even if it isn't in the default palette)
+  const list = (preselect && !emojis.includes(preselect)) ? [preselect, ...emojis] : emojis;
+  list.forEach((e, idx) => {
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'emoji-pick' + (idx === 0 ? ' selected' : '');
+    btn.className = 'emoji-pick' + ((preselect ? e === preselect : idx === 0) ? ' selected' : '');
     btn.textContent = e;
     btn.dataset.emoji = e;
     btn.addEventListener('click', () => {
@@ -1617,21 +1703,45 @@ function confirmAddItem() {
   const emojiSel = document.querySelector('#add-item-emojis .emoji-pick.selected');
   const color = colorSel ? colorSel.dataset.color : ITEM_COLORS[0];
   const emoji = emojiSel ? emojiSel.dataset.emoji : (pendingAddType === 'car' ? '🚗' : '📍');
-  const id = uid();
+  let runtime = null;
+  if (pendingAddType === 'car') {
+    const rv = parseInt(document.getElementById('add-item-runtime').value, 10);
+    if (rv && rv > 0) runtime = rv;
+  }
   const db = getDB();
-  if (pendingAddType === 'car') db.cars[id] = { id, name, color, emoji };
-  else db.locations[id] = { id, name, color, emoji };
-  // auto-select the new item
-  const r = db.riders[currentRider];
-  if (r) {
-    if (pendingAddType === 'car') r.lastCarId = id;
-    else r.lastLocationId = id;
+  const isEdit = !!pendingEditId;
+  const id = isEdit ? pendingEditId : uid();
+  if (pendingAddType === 'car') {
+    const existing = db.cars[id] || {};
+    db.cars[id] = { ...existing, id, name, color, emoji, runtimeMinutes: runtime };
+  } else {
+    const existing = db.locations[id] || {};
+    db.locations[id] = { ...existing, id, name, color, emoji };
+  }
+  // auto-select on add (not edit)
+  if (!isEdit) {
+    const r = db.riders[currentRider];
+    if (r) {
+      if (pendingAddType === 'car') r.lastCarId = id;
+      else r.lastLocationId = id;
+    }
+  }
+  // if editing the currently-selected car, sync its runtime to the daily limit
+  if (isEdit && pendingAddType === 'car') {
+    const r = db.riders[currentRider];
+    if (r && r.lastCarId === id && runtime) {
+      r.dailyLimitMinutes = runtime;
+    }
   }
   saveDB(db);
   closeAddItem();
   renderCarChips();
   renderLocationChips();
-  toast(name + ' added', 'ok');
+  if (pendingAddType === 'car') {
+    document.getElementById('limit-input').value = db.riders[currentRider].dailyLimitMinutes;
+    refreshToday();
+  }
+  toast(name + (isEdit ? ' saved' : ' added'), 'ok');
 }
 
 /* ================= GPS ================= */
