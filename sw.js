@@ -1,5 +1,5 @@
 /* Ride Tracker — Service Worker */
-const CACHE = 'ride-tracker-v4';
+const CACHE = 'ride-tracker-v5';
 const ASSETS = [
   './',
   './index.html',

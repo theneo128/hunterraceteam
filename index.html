@@ -1707,10 +1707,23 @@ async function openMap(ride) {
   const container = document.getElementById('map-container');
   container.innerHTML = '';
   const map = L.map(container, { zoomControl: true });
-  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  const streets = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap contributors',
     maxZoom: 19
-  }).addTo(map);
+  });
+  const satellite = L.tileLayer(
+    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    {
+      attribution: 'Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics',
+      maxZoom: 19
+    }
+  );
+  streets.addTo(map);
+  L.control.layers(
+    { 'Streets': streets, 'Satellite': satellite },
+    null,
+    { position: 'topright', collapsed: false }
+  ).addTo(map);
 
   const pts = ride.gpsPoints || [];
   if (pts.length >= 2) {
