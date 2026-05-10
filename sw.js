@@ -1,5 +1,5 @@
-/* Race Control — Service Worker */
-const CACHE = 'race-control-v2';
+/* Ride Tracker — Service Worker */
+const CACHE = 'ride-tracker-v3';
 const ASSETS = [
   './',
   './index.html',

@@ -1,8 +1,13 @@
-# Race Control · Team Telemetry
+# Ride Tracker
 
-A self-contained PWA (Progressive Web App). No backend, no build step, no
-framework. Drop the folder onto a static host, open it on a phone, install
-to the home screen — feels native.
+A simple PWA for tracking how long each kid rides their battery cars and
+pedal cars around the house. Pick a tile, hit Start Ride, hit Stop when
+they're done. See who's ridden the most today, set per-kid daily limits,
+and the app warns when the limit's hit.
+
+No backend, no build step, no framework — drop the folder onto a static
+host, open it on a phone, install to the home screen, and it works
+offline.
 
 ## What's in this folder
 
@@ -32,63 +37,62 @@ npx serve .
 
 Then visit `http://localhost:8080`.
 
-## Deploy (free, ~30 seconds)
+## Deploy
 
-Pick one — all support drag-and-drop:
+Pick whatever:
 
-- **Netlify Drop** — https://app.netlify.com/drop · drag the folder, get a URL
+- **GitHub Pages** — Settings → Pages → Source: main / root → Save
+- **Netlify Drop** — drag the folder, get a URL
 - **Vercel** — `npx vercel` from the folder
-- **GitHub Pages** — push to a repo, enable Pages on the main branch
 - **Cloudflare Pages** — connect repo or upload directly
 
-Once deployed, open the URL on your phone:
+Once deployed, open the URL on the phone:
 
-- **Android (Chrome)** — a small "Install" prompt should appear, plus
-  the in-app "INSTALL" button next to "EXIT" once detected.
-- **iOS (Safari)** — Apple doesn't show a prompt. Tap the share button →
-  "Add to Home Screen". The in-app "INSTALL" button shows the same steps.
+- **Android (Chrome)** — tap the install button (⬇) in the top-right.
+- **iOS (Safari)** — tap the install button → step-by-step "Add to Home
+  Screen" instructions appear.
 
-After install, launch from the home screen — it runs full-screen with no
-browser chrome and works offline.
+After install, launch from the home screen — runs full-screen, works
+offline.
 
 ## Features
 
-- F1-style start-light sequence on login
-- Circular speedometer gauge tied to the daily fuel budget
-- Live HH:MM:SS stint timer with wake-lock (screen stays on while running)
-- Animated team race-progress bar with checkered finish
-- Race-position leaderboard with gold/silver/bronze podium
-- Checkered-flag celebration overlay when team hits goal
-- Per-driver auto race numbers (derived from name)
-- JSON export/import for cross-device team sync (no backend)
-- Offline-capable, installable, dark-mode native
+- Tap-to-pick rider tiles (no PIN, kid-friendly)
+- One starter rider seeded automatically (Hunter); add more from the
+  picker
+- Each rider has a color and shows up on their tile and leaderboard
+- Big Start / Stop button — wake-lock keeps the screen on while a ride
+  is running
+- Per-rider daily limit (default 30 min) — bar turns yellow at 75%, red
+  when over, and a "Time's up!" toast appears the moment you cross
+- Today / All Time leaderboard with medal emoji 🥇🥈🥉
+- "Edit riders" mode in the picker → remove rider with confirmation
+- Cross-device sync via JSON Export / Import (AirDrop, email, etc.)
+- Offline-capable, installable, light cream theme
+
+## Daily reset
+
+Each rider tracks `todayMinutes` and `todayDate`. When the date rolls
+over, today's count resets automatically (the all-time total keeps
+adding up).
 
 ## Data sync without a backend
 
-Each driver's data lives in their browser's localStorage. To play as a
-team across devices, use the "Data Sync" card:
+Each device's data lives in browser localStorage. To sync between
+phones / tablets:
 
-1. Driver A taps **Export Data** → gets a JSON file
-2. Sends it to Driver B (AirDrop / email / Slack / etc.)
-3. Driver B taps **Import Data** → merges in
+1. On device A: tap **📤 Export** → gets a JSON file
+2. Send it (AirDrop / Slack / email)
+3. On device B: tap **📥 Import** → merges in
 
-The merge keeps the highest mileage per driver and unions team membership.
-Existing local PINs are preserved (incoming PINs don't overwrite).
+Merge rules: keeps the higher all-time minutes per rider; if the same
+day is open on both, keeps the higher today count.
 
-## Want a real shared backend instead?
+## Customization
 
-Drop in any of these without changing the UI much:
-- **Firebase Realtime Database / Firestore** — free tier, real-time sync
-- **Supabase** — Postgres + auth + realtime
-- **Cloudflare Durable Objects** — single-team-per-room model
-- **Pocketbase** — single-binary backend, self-host anywhere
-
-Replace the four `localStorage` calls (`getDB`, `saveDB`, plus the export
-helpers) with HTTP/realtime calls and you're done.
-
-## Customization quick-start
-
-- Brand colors are CSS variables at the top of `index.html` (`--red`, `--green`, etc.)
-- Daily-budget formula is `((mpg * tank) / 30) / 5` in the `updateDailyBudget()` function
-- Mile-per-minute conversion is `5` (search `* 5`); change to fit your metaphor
-- Service worker cache version: bump `'race-control-v1'` in `sw.js` to invalidate caches on deploy
+- Theme colors live as CSS variables at the top of `index.html`
+  (`--bg`, `--green`, `--red`, etc.)
+- Default daily limit is `30` (search `dailyLimitMinutes: 30`)
+- Rider color palette is `RIDER_COLORS` in the script
+- Service worker cache version: bump `'ride-tracker-v3'` in `sw.js` to
+  invalidate caches on next deploy
