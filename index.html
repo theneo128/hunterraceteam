@@ -979,6 +979,10 @@
     <section class="card">
       <div class="card-title">Filter by Rider</div>
       <div class="chip-row" id="admin-filter-chips"></div>
+      <div id="admin-actions" style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:14px;">
+        <button class="btn btn-ghost" id="admin-view-routes-btn" onclick="viewFilteredRoutes()">🗺 View Routes</button>
+        <button class="btn btn-primary hidden" id="admin-open-dashboard-btn" onclick="openFilteredRider()">Open <span id="admin-rider-action-name">Hunter</span> →</button>
+      </div>
     </section>
 
     <section class="card">
@@ -1339,6 +1343,7 @@ function toggleRiderEditMode() {
 }
 
 function selectRider(name) {
+  cameFromAdmin = false;
   currentRider = name;
   showDashboard();
 }
@@ -1962,7 +1967,8 @@ function renderLeaderboard() {
 }
 
 /* ================= ADMIN PANEL ================= */
-let adminFilter = 'all';   // 'all' | <riderName>
+let adminFilter = 'all';        // 'all' | <riderName>
+let cameFromAdmin = false;
 
 function openAdmin() {
   document.getElementById('picker-screen').classList.add('hidden');
@@ -1974,6 +1980,30 @@ function closeAdmin() {
   document.getElementById('admin-screen').classList.add('hidden');
   document.getElementById('picker-screen').classList.remove('hidden');
   renderPicker();
+}
+
+function openFilteredRider() {
+  if (adminFilter === 'all') return;
+  const db = getDB();
+  if (!db.riders[adminFilter]) return;
+  currentRider = adminFilter;
+  cameFromAdmin = true;
+  document.getElementById('admin-screen').classList.add('hidden');
+  showDashboard();
+}
+
+function viewFilteredRoutes() {
+  const db = getDB();
+  const rides = (adminFilter === 'all')
+    ? db.rides.slice()
+    : db.rides.filter(r => r.riderName === adminFilter);
+  const withGPS = rides.filter(r => r.gpsPoints && r.gpsPoints.length >= 2);
+  if (!withGPS.length) {
+    toast('No routes with GPS data yet', 'warn');
+    return;
+  }
+  const label = adminFilter === 'all' ? 'All Routes' : adminFilter + "'s Routes";
+  openMultiMap(withGPS, label);
 }
 
 function renderAdmin() {
@@ -2025,6 +2055,15 @@ function renderAdminStatsAndList() {
   document.getElementById('admin-total-time').textContent = formatMins(totalSec / 60);
   document.getElementById('admin-total-dist').textContent = (totalDistM / 1000).toFixed(2);
   document.getElementById('admin-count').textContent = totalRides;
+
+  // action buttons
+  const openBtn = document.getElementById('admin-open-dashboard-btn');
+  if (adminFilter !== 'all') {
+    openBtn.classList.remove('hidden');
+    document.getElementById('admin-rider-action-name').textContent = adminFilter;
+  } else {
+    openBtn.classList.add('hidden');
+  }
 
   const container = document.getElementById('admin-ride-list');
   if (!filtered.length) {
@@ -2164,6 +2203,70 @@ function closeMap() {
   if (activeMap) { activeMap.remove(); activeMap = null; }
 }
 
+async function openMultiMap(rides, label) {
+  document.getElementById('map-title').textContent = label;
+  document.getElementById('map-sub').textContent = rides.length + ' route' + (rides.length === 1 ? '' : 's');
+  const totalDist = rides.reduce((s, r) => s + (r.distanceM || 0), 0);
+  const totalSec = rides.reduce((s, r) => s + (r.durationSec || 0), 0);
+  document.getElementById('map-distance').textContent = formatDistance(totalDist);
+  document.getElementById('map-duration').textContent = formatMins(totalSec / 60) + ' min';
+  document.getElementById('map-topspeed').textContent = '—';
+
+  const overlay = document.getElementById('map-overlay');
+  overlay.classList.remove('hidden');
+
+  let L;
+  try { L = await loadLeaflet(); }
+  catch (e) {
+    document.getElementById('map-container').innerHTML =
+      '<div class="empty" style="padding:40px 20px;">Couldn\'t load the map.<br>Check your internet connection.</div>';
+    return;
+  }
+
+  if (activeMap) { activeMap.remove(); activeMap = null; }
+  const container = document.getElementById('map-container');
+  container.innerHTML = '';
+  const map = L.map(container, { zoomControl: true });
+  const streets = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap', maxZoom: 19
+  });
+  const satellite = L.tileLayer(
+    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    { attribution: 'Tiles © Esri', maxZoom: 19 }
+  );
+  streets.addTo(map);
+  L.control.layers(
+    { 'Streets': streets, 'Satellite': satellite },
+    null,
+    { position: 'topright', collapsed: false }
+  ).addTo(map);
+
+  const db = getDB();
+  const allLatLngs = [];
+  rides.forEach(ride => {
+    const r = db.riders[ride.riderName];
+    const color = (r && r.color) || colorForName(ride.riderName);
+    const latlngs = ride.gpsPoints.map(p => [p.lat, p.lon]);
+    L.polyline(latlngs, { color, weight: 4, opacity: 0.8 }).addTo(map);
+    if (latlngs.length) {
+      L.circleMarker(latlngs[0], {
+        radius: 5, color: '#fff', weight: 2, fillColor: color, fillOpacity: 1
+      }).addTo(map).bindTooltip(ride.riderName + ' start');
+      L.circleMarker(latlngs[latlngs.length - 1], {
+        radius: 5, color: '#fff', weight: 2, fillColor: color, fillOpacity: 1
+      }).addTo(map).bindTooltip(ride.riderName + ' end');
+      allLatLngs.push(...latlngs);
+    }
+  });
+  if (allLatLngs.length) {
+    map.fitBounds(allLatLngs, { padding: [24, 24] });
+  } else {
+    map.setView([0, 0], 2);
+  }
+  activeMap = map;
+  setTimeout(() => map.invalidateSize(), 250);
+}
+
 /* ================= PWA / INSTALL / SW ================= */
 function isStandalone() {
   return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
@@ -2289,9 +2392,15 @@ function logout() {
   currentRider = null;
   chipEditMode = null;
   document.getElementById('dashboard').classList.add('hidden');
-  document.getElementById('picker-screen').classList.remove('hidden');
-  cancelAddRider();
-  renderPicker();
+  if (cameFromAdmin) {
+    cameFromAdmin = false;
+    document.getElementById('admin-screen').classList.remove('hidden');
+    renderAdmin();
+  } else {
+    document.getElementById('picker-screen').classList.remove('hidden');
+    cancelAddRider();
+    renderPicker();
+  }
 }
 
 /* ================= THEME ================= */
