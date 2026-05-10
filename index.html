@@ -594,6 +594,26 @@
   }
   .ios-steps li strong { color: var(--blue); font-weight: 700; }
 
+  /* LIVE MAP CARD */
+  .live-map-card {
+    padding: 12px;
+    border: 1.5px solid var(--green);
+    box-shadow: 0 4px 14px rgba(34,197,94,0.18);
+  }
+  .live-map-card .card-title { padding: 0 8px 10px; margin-bottom: 0; }
+  .live-map-card .card-title::before {
+    content: ''; display: inline-block;
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--green); margin-right: 8px;
+    animation: blink 1.4s infinite;
+    vertical-align: middle;
+  }
+  #live-map-container {
+    height: 280px; width: 100%;
+    border-radius: 12px; overflow: hidden;
+    background: var(--bg);
+  }
+
   /* MAP MODAL */
   #map-overlay { padding: 0; }
   .map-card {
@@ -736,6 +756,11 @@
       <div id="gps-pill" class="gps-pill"><span class="gps-dot"></span><span id="gps-text">GPS off</span></div>
     </section>
 
+    <section class="card live-map-card hidden" id="live-map-card">
+      <div class="card-title">Live View</div>
+      <div id="live-map-container"></div>
+    </section>
+
     <section class="card">
       <div class="card-title">Ride History</div>
       <div id="ride-history"></div>
@@ -854,6 +879,12 @@ let currentRideGPS = [];
 let lastGPSPushTs = 0;
 let leafletPromise = null;
 let activeMap = null;
+
+let liveMap = null;
+let livePolyline = null;
+let liveMarker = null;
+let liveAccuracyCircle = null;
+let liveCentered = false;
 
 /* ================= STORAGE ================= */
 const STORAGE_KEY = 'ride_tracker_db';
@@ -1428,20 +1459,23 @@ function startGPS() {
   geoWatchId = navigator.geolocation.watchPosition(
     (pos) => {
       const acc = Math.round(pos.coords.accuracy);
-      // throttle: keep at most one point per 2s
+      const lat = pos.coords.latitude;
+      const lon = pos.coords.longitude;
+
+      // live marker follows every position update (smooth)
+      updateLivePosition(lat, lon, acc);
+
+      // throttled storage: keep at most one stored point per 2s
       if (pos.timestamp - lastGPSPushTs >= 2000) {
-        const point = {
-          lat: pos.coords.latitude,
-          lon: pos.coords.longitude,
-          ts: pos.timestamp,
-          accuracy: acc,
-        };
+        const point = { lat, lon, ts: pos.timestamp, accuracy: acc };
         if (typeof pos.coords.speed === 'number' && pos.coords.speed >= 0) {
           point.speed = pos.coords.speed;
         }
         currentRideGPS.push(point);
         lastGPSPushTs = pos.timestamp;
+        appendLiveTrail(lat, lon);
       }
+
       setGPSPill('ok', 'GPS · ±' + acc + ' m · ' + currentRideGPS.length + ' pts');
     },
     (err) => {
@@ -1456,6 +1490,82 @@ function stopGPS() {
     navigator.geolocation.clearWatch(geoWatchId);
     geoWatchId = null;
   }
+}
+
+/* ================= LIVE MAP ================= */
+async function initLiveMap() {
+  document.getElementById('live-map-card').classList.remove('hidden');
+  let L;
+  try { L = await loadLeaflet(); }
+  catch (e) {
+    document.getElementById('live-map-container').innerHTML =
+      '<div class="empty" style="padding:40px 20px;">Map couldn\'t load.<br>Check your internet.</div>';
+    return;
+  }
+  const container = document.getElementById('live-map-container');
+  container.innerHTML = '';
+  liveMap = L.map(container, { zoomControl: true });
+  const streets = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap', maxZoom: 19
+  });
+  const satellite = L.tileLayer(
+    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    { attribution: 'Tiles © Esri', maxZoom: 19 }
+  );
+  streets.addTo(liveMap);
+  L.control.layers(
+    { 'Streets': streets, 'Satellite': satellite },
+    null,
+    { position: 'topright', collapsed: true }
+  ).addTo(liveMap);
+
+  const db = getDB();
+  const r = db.riders[currentRider];
+  const color = (r && r.color) || '#3B82F6';
+  livePolyline = L.polyline([], { color, weight: 5, opacity: 0.9 }).addTo(liveMap);
+  liveCentered = false;
+  liveMap.setView([0, 0], 2);
+  setTimeout(() => { if (liveMap) liveMap.invalidateSize(); }, 250);
+}
+
+function updateLivePosition(lat, lon, acc) {
+  if (!liveMap || !window.L) return;
+  const L = window.L;
+  if (!liveMarker) {
+    liveAccuracyCircle = L.circle([lat, lon], {
+      radius: acc, color: '#3B82F6', weight: 1, opacity: 0.5,
+      fillColor: '#3B82F6', fillOpacity: 0.10
+    }).addTo(liveMap);
+    liveMarker = L.circleMarker([lat, lon], {
+      radius: 8, color: '#fff', weight: 3, fillColor: '#3B82F6', fillOpacity: 1
+    }).addTo(liveMap);
+  } else {
+    liveMarker.setLatLng([lat, lon]);
+    if (liveAccuracyCircle) {
+      liveAccuracyCircle.setLatLng([lat, lon]);
+      liveAccuracyCircle.setRadius(acc);
+    }
+  }
+  if (!liveCentered) {
+    liveMap.setView([lat, lon], 18);
+    liveCentered = true;
+  } else {
+    liveMap.panTo([lat, lon], { animate: true, duration: 0.6 });
+  }
+}
+
+function appendLiveTrail(lat, lon) {
+  if (!livePolyline) return;
+  livePolyline.addLatLng([lat, lon]);
+}
+
+function tearDownLiveMap() {
+  document.getElementById('live-map-card').classList.add('hidden');
+  if (liveMap) { liveMap.remove(); liveMap = null; }
+  livePolyline = null;
+  liveMarker = null;
+  liveAccuracyCircle = null;
+  liveCentered = false;
 }
 
 /* ================= RIDE TIMER ================= */
@@ -1491,6 +1601,7 @@ function startRide() {
   rideTickInterval = setInterval(tickTimer, 250);
   requestWakeLock();
   startGPS();
+  initLiveMap();
 }
 function tickTimer() {
   if (!rideStart) return;
@@ -1516,6 +1627,7 @@ function stopRide() {
   clearInterval(rideTickInterval);
   releaseWakeLock();
   stopGPS();
+  tearDownLiveMap();
 
   const db = getDB();
   const r = db.riders[currentRider];
